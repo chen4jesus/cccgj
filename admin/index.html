@@ -6,6 +6,7 @@
     <title>Admin Dashboard - Church Ministry</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
     <style>
         body {
             font-family: 'Poppins', sans-serif;
@@ -109,6 +110,116 @@
         .table-container {
             overflow-x: auto;
         }
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            margin-top: 1rem;
+            gap: 10px;
+        }
+        .pagination button {
+            padding: 0.5rem 1rem;
+            background: #fff;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .pagination button:disabled {
+            background: #eee;
+            cursor: not-allowed;
+            color: #aaa;
+        }
+        .pagination span {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.5); 
+            backdrop-filter: blur(4px);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto; 
+            padding: 2rem;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            font-family: 'Poppins', sans-serif;
+        }
+        .close-modal {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-modal:hover,
+        .close-modal:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group textarea {
+            resize: vertical;
+            height: 100px;
+        }
+        .btn-save {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 100%;
+        }
+        .btn-save:hover {
+            background-color: #27ae60;
+        }
+        .action-btns {
+            display: flex;
+            gap: 5px;
+        }
+        .edit-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 0.5rem 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .edit-btn:hover {
+            background-color: #2980b9;
+        }
     </style>
 </head>
 <body>
@@ -142,6 +253,12 @@
                     </tbody>
                 </table>
                 <div id="messages-empty" class="empty-state" style="display:none">No messages found.</div>
+                
+                <div class="pagination" id="messages-pagination" style="display:none">
+                    <button id="prev-btn" onclick="changePage(-1)">Previous</button>
+                    <span id="page-info">Page 1 of 1</span>
+                    <button id="next-btn" onclick="changePage(1)">Next</button>
+                </div>
             </div>
         </div>
 
@@ -164,6 +281,34 @@
             </div>
         </div>
     </main>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <h2 style="margin-top:0">Edit Message</h2>
+            <form id="editForm">
+                <input type="hidden" id="edit-id">
+                <div class="form-group">
+                    <label for="edit-name">Name</label>
+                    <input type="text" id="edit-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-email">Email</label>
+                    <input type="email" id="edit-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-phone">Phone</label>
+                    <input type="text" id="edit-phone">
+                </div>
+                <div class="form-group">
+                    <label for="edit-message">Message</label>
+                    <textarea id="edit-message" required></textarea>
+                </div>
+                <button type="submit" class="btn-save">Save Changes</button>
+            </form>
+        </div>
+    </div>
 
     <script>
         // Auth Check
@@ -199,37 +344,70 @@
             }
         }
 
+        let currentPage = 1;
+        const LIMIT = 10;
+        let totalPages = 1;
+
         async function loadData() {
-            loadMessages();
+            loadMessages(1);
             loadFiles();
         }
 
-        async function loadMessages() {
+        async function loadMessages(page = 1) {
+            currentPage = page;
             const tbody = document.getElementById('messages-body');
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Loading...</td></tr>';
             try {
-                const res = await fetch('/api/admin/messages');
+                const res = await fetch(`/api/admin/messages?page=${page}&limit=${LIMIT}`);
                 const data = await res.json();
                 tbody.innerHTML = '';
+                
                 if (data.success && data.messages.length > 0) {
                     data.messages.forEach(msg => {
+                        // Securely escape data strings if needed, but for innerHTML, be careful
+                        // Assuming simple text content here
                         const tr = document.createElement('tr');
+                        // Use a safer way to pass object to edit function
+                        const msgStr = JSON.stringify(msg).replace(/"/g, '&quot;');
+                        
                         tr.innerHTML = `
                             <td>${new Date(msg.timestamp).toLocaleString()}</td>
                             <td>${msg.name || '-'}</td>
                             <td>${msg.email || '-'}</td>
                             <td>${msg.phone || '-'}</td>
                             <td style="max-width:300px; word-break:break-word">${msg.message}</td>
-                            <td><button class="delete-btn" onclick="deleteMessage(${msg.id})">Delete</button></td>
+                            <td>
+                                <div class="action-btns">
+                                    <button class="edit-btn" onclick="openEditModal(${msgStr})">Edit</button>
+                                    <button class="delete-btn" onclick="deleteMessage(${msg.id})">Delete</button>
+                                </div>
+                            </td>
                         `;
                         tbody.appendChild(tr);
                     });
                     document.getElementById('messages-empty').style.display = 'none';
+                    
+                    // Update Pagination UI
+                    totalPages = Math.ceil(data.total / LIMIT);
+                    document.getElementById('messages-pagination').style.display = 'flex';
+                    document.getElementById('page-info').textContent = `Page ${page} of ${totalPages || 1}`;
+                    document.getElementById('prev-btn').disabled = page <= 1;
+                    document.getElementById('next-btn').disabled = page >= totalPages;
+
                 } else {
                     document.getElementById('messages-empty').style.display = 'block';
+                    document.getElementById('messages-pagination').style.display = 'none';
                 }
             } catch (e) {
+                console.error(e);
                 tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red">Error loading messages</td></tr>';
+            }
+        }
+
+        function changePage(delta) {
+            const newPage = currentPage + delta;
+            if (newPage > 0 && newPage <= totalPages) {
+                loadMessages(newPage);
             }
         }
 
@@ -239,12 +417,65 @@
                 const res = await fetch('/api/admin/messages/' + id, { method: 'DELETE' });
                 const data = await res.json();
                 if(data.success) {
-                    loadMessages();
+                    loadMessages(currentPage);
                 } else {
                     alert('Error deleting message');
                 }
             } catch(e) {
                 alert('Error deleting message');
+            }
+        }
+
+        // --- Edit Modal Logic ---
+        const editModal = document.getElementById('editModal');
+        const editForm = document.getElementById('editForm');
+
+        function openEditModal(message) {
+            document.getElementById('edit-id').value = message.id;
+            document.getElementById('edit-name').value = message.name || '';
+            document.getElementById('edit-email').value = message.email || '';
+            document.getElementById('edit-phone').value = message.phone || '';
+            document.getElementById('edit-message').value = message.message || '';
+            
+            editModal.style.display = 'block';
+        }
+
+        function closeModal() {
+            editModal.style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == editModal) {
+                closeModal();
+            }
+        }
+
+        editForm.onsubmit = async function(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit-id').value;
+            const updatedData = {
+                name: document.getElementById('edit-name').value,
+                email: document.getElementById('edit-email').value,
+                phone: document.getElementById('edit-phone').value,
+                message: document.getElementById('edit-message').value
+            };
+
+            try {
+                const res = await fetch('/api/admin/messages/' + id, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedData)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeModal();
+                    loadMessages(currentPage); // Reload current page
+                } else {
+                    alert('Error updating message: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error updating message');
             }
         }
 

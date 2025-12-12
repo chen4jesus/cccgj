@@ -74,13 +74,34 @@ class AIServerHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_error(401, "Unauthorized")
                     return
 
-                if self.path == '/api/admin/messages':
+                if self.path.startswith('/api/admin/messages'):
                     try:
+                        # Parse query params manually to avoid extra dependencies if possible, 
+                        # or just use simple string manipulation for page/limit
+                        # url: /api/admin/messages?page=1&limit=10
+                        
+                        query_string = self.path.split('?')[1] if '?' in self.path else ''
+                        params = {}
+                        if query_string:
+                            for pair in query_string.split('&'):
+                                if '=' in pair:
+                                    k, v = pair.split('=')
+                                    params[k] = v
+                        
+                        page = int(params.get('page', 1))
+                        limit = int(params.get('limit', 10))
+                        offset = (page - 1) * limit
+
                         conn = sqlite3.connect(DB_FILE)
-                        # Return dicts
                         conn.row_factory = sqlite3.Row
                         c = conn.cursor()
-                        c.execute("SELECT * FROM messages ORDER BY timestamp DESC")
+                        
+                        # Get Total Count
+                        c.execute("SELECT COUNT(*) FROM messages")
+                        total = c.fetchone()[0]
+
+                        # Get Paginated Messages
+                        c.execute("SELECT * FROM messages ORDER BY timestamp DESC LIMIT ? OFFSET ?", (limit, offset))
                         rows = c.fetchall()
                         messages = [dict(row) for row in rows]
                         conn.close()
@@ -88,7 +109,13 @@ class AIServerHandler(http.server.SimpleHTTPRequestHandler):
                         self.send_response(200)
                         self.send_header('Content-type', 'application/json')
                         self.end_headers()
-                        self.wfile.write(json.dumps({"success": True, "messages": messages}).encode('utf-8'))
+                        self.wfile.write(json.dumps({
+                            "success": True, 
+                            "messages": messages,
+                            "total": total,
+                            "page": page,
+                            "limit": limit
+                        }).encode('utf-8'))
                     except Exception as e:
                         self.send_error(500, str(e))
                     return
@@ -144,10 +171,46 @@ class AIServerHandler(http.server.SimpleHTTPRequestHandler):
         # Default Static File Serving
         super().do_GET()
 
+    def do_PUT(self):
+        if not self.is_authenticated():
+            self.send_error(401, "Unauthorized")
+            return
+
+        if self.path.startswith('/api/admin/messages/'):
+            msg_id = self.path.split('/')[-1]
+            content_length = int(self.headers['Content-Length'])
+            put_data = self.rfile.read(content_length)
+
+            try:
+                data = json.loads(put_data)
+                name = data.get('name')
+                email = data.get('email')
+                phone = data.get('phone')
+                message_content = data.get('message')
+
+                conn = sqlite3.connect(DB_FILE)
+                c = conn.cursor()
+                c.execute("""
+                    UPDATE messages 
+                    SET name = ?, email = ?, phone = ?, message = ?
+                    WHERE id = ?
+                """, (name, email, phone, message_content, msg_id))
+                conn.commit()
+                conn.close()
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True}).encode('utf-8'))
+            except Exception as e:
+                self.send_error(500, str(e))
+        else:
+             self.send_error(404, "Endpoint not found")
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS, DELETE')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         self.end_headers()
 
@@ -309,6 +372,9 @@ class AIServerHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         super().end_headers()
 
+class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
+
 if __name__ == "__main__":
     web_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(web_dir)
@@ -317,9 +383,10 @@ if __name__ == "__main__":
     
     print(f"Admin Password: {ADMIN_PASSWORD}") # Print for user awareness
     
-    with socketserver.TCPServer(("", PORT), AIServerHandler) as httpd:
+    # Use ThreadingHTTPServer for concurrent request handling
+    with ThreadingHTTPServer(("", PORT), AIServerHandler) as httpd:
         print(f"Serving at http://localhost:{PORT}")
-        print("AI Agent Backend Ready. Waiting for requests...")
+        print("AI Agent Backend Ready (Multi-threaded). Waiting for requests...")
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
