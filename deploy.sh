@@ -37,6 +37,7 @@ docker run -d \
     -v "$(pwd)/$DATA_DIR:/app/data" \
     -v "$(pwd)/nginx.conf:/etc/nginx/conf.d/default.conf" \
     -e DB_FILE="/app/data/contacts.db" \
+    -e ADMIN_PASSWORD=$(ADMIN_PASSWORD)
     --restart unless-stopped \
     $IMAGE_NAME
 
