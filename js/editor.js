@@ -623,7 +623,34 @@ const initEditor = () => {
                 if (data.error === 'CLAUDE_NOT_FOUND') {
                     // Fallback to Clipboard
                     const fullPrompt = `Task: ${promptText}\n\nContext HTML:\n${htmlSnippet}`;
-                    navigator.clipboard.writeText(fullPrompt).then(() => {
+                    const fullPrompt = `Task: ${promptText}\n\nContext HTML:\n${htmlSnippet}`;
+                    
+                    const copyToClipboard = (text) => {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                             return navigator.clipboard.writeText(text);
+                        } else {
+                             // Fallback for non-secure contexts
+                             return new Promise((resolve, reject) => {
+                                 const textArea = document.createElement("textarea");
+                                 textArea.value = text;
+                                 textArea.style.position = "fixed";
+                                 textArea.style.left = "-9999px";
+                                 document.body.appendChild(textArea);
+                                 textArea.focus();
+                                 textArea.select();
+                                 try {
+                                     document.execCommand('copy');
+                                     document.body.removeChild(textArea);
+                                     resolve();
+                                 } catch (err) {
+                                     document.body.removeChild(textArea);
+                                     reject(err);
+                                 }
+                             });
+                        }
+                    };
+
+                    copyToClipboard(fullPrompt).then(() => {
                         statusMsg.textContent = "Claude CLI not found. Prompt copied to clipboard!";
                         statusMsg.style.color = '#e67e22'; // Orange/Warning
                         alert("Warning: 'claude' CLI not installed/found on server.\n\nFallback: Prompt has been copied to your clipboard.");
@@ -631,6 +658,10 @@ const initEditor = () => {
                             aiModal.classList.add('hidden');
                             toggleAIMode(false);
                         }, 2000);
+                    }).catch(() => {
+                        // Ultimate fallback if copy fails
+                         window.prompt("Copy this prompt:", fullPrompt);
+                         statusMsg.textContent = "Please manually copy the prompt.";
                     });
                 } else {
                     statusMsg.textContent = "Error: " + (data.error || "Unknown error");
