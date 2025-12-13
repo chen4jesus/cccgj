@@ -74,7 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (sessionStorage.getItem('aiModeEnabled') === 'true') {
     const script = document.createElement('script');
-    script.src = 'js/editor.js';
+    script.src = 'js/aiditor.js';
     document.body.appendChild(script);
   }
 })();

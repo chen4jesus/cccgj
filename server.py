@@ -11,11 +11,14 @@ import shutil
 import sqlite3
 import datetime
 import time
+import base64
+import aissistant
 
 PORT = int(os.getenv('PORT', 8000))
 DB_FILE = os.getenv('DB_FILE', 'contacts.db')
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'admin123')
 UPLOAD_DIR = os.path.join(os.getcwd(), 'upload')
+CAPTURES_DIR = os.path.join(os.getcwd(), 'captures')
 
 # Simple in-memory session store: token -> timestamp
 SESSIONS = {}
@@ -23,6 +26,9 @@ SESSION_TIMEOUT = 3600  # 1 hour
 
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
+
+if not os.path.exists(CAPTURES_DIR):
+    os.makedirs(CAPTURES_DIR)
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -40,7 +46,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-class AIServerHandler(http.server.SimpleHTTPRequestHandler):
+class ServerHandler(http.server.SimpleHTTPRequestHandler):
     def is_authenticated(self):
         cookie_header = self.headers.get('Cookie')
         if not cookie_header:
@@ -253,40 +259,10 @@ class AIServerHandler(http.server.SimpleHTTPRequestHandler):
             
             try:
                 data = json.loads(post_data)
-                prompt = data.get('prompt', '')
-                context = data.get('context', '')
-
-                # Check if Claude CLI exists
-                if not shutil.which('claude'):
-                    print("[ERROR] 'claude' CLI not found in PATH")
-                    self.send_response(200) # Still 200 OK, but with error payload
-                    self.send_header('Content-type', 'application/json')
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": False, "error": "CLAUDE_NOT_FOUND"}).encode('utf-8'))
-                    return
                 
-                # Construct the full prompt for the agent
-                full_message = f"Task: {prompt}\n\nContext HTML request:\n{context}\n\nPlease provide the corrected/updated HTML code based on the task."
+                # Delegate to AI Assistant Module
+                response = aissistant.handle_ai_request(data, CAPTURES_DIR)
                 
-                print(f"[AI Agent] Received Prompt: {prompt}")
-                
-                # Invoke Claude CLI
-                process = subprocess.Popen(
-                    ['claude'], 
-                    stdin=subprocess.PIPE, 
-                    stdout=subprocess.PIPE, 
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    shell=True 
-                )
-                
-                stdout, stderr = process.communicate(input=full_message)
-                
-                if process.returncode != 0:
-                    response = {"success": False, "error": stderr or "Unknown error"}
-                else:
-                    response = {"success": True, "output": stdout}
-
                 # Send Response
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
@@ -384,7 +360,7 @@ if __name__ == "__main__":
     print(f"Admin Password: {ADMIN_PASSWORD}") # Print for user awareness
     
     # Use ThreadingHTTPServer for concurrent request handling
-    with ThreadingHTTPServer(("", PORT), AIServerHandler) as httpd:
+    with ThreadingHTTPServer(("", PORT), ServerHandler) as httpd:
         print(f"Serving at http://localhost:{PORT}")
         print("AI Agent Backend Ready (Multi-threaded). Waiting for requests...")
         try:
