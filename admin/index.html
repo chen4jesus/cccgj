@@ -48,6 +48,28 @@
         .logout-btn:hover {
             background: rgba(255,255,255,0.1);
         }
+        .ai-toggle-btn {
+            background: transparent;
+            border: 1px solid #777;
+            color: #ccc;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        .ai-toggle-btn:hover {
+             border-color: #aaa;
+             color: white;
+        }
+        .ai-toggle-btn.active {
+            background: linear-gradient(to bottom, #00d2ff, #007aff);
+            border-color: #0056b3;
+            color: white;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.3);
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
+        }
         main {
             flex: 1;
             padding: 2rem;
@@ -236,8 +258,13 @@
 
     <header>
         <h1>Admin Dashboard</h1>
-        <a href="/index.html" class="home-btn"><i class="fas fa-home"></i> Back to Home Page</a>
-        <a href="#" onclick="logout()" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <div style="display: flex; align-items: center;">
+            <button id="ai-toggle-btn" class="ai-toggle-btn" onclick="toggleAIMode()">
+                <i class="fas fa-robot"></i> AI Mode: OFF
+            </button>
+            <a href="/index.html" class="home-btn" style="margin-right: 10px;"><i class="fas fa-home"></i> Back to Home Page</a>
+            <a href="#" onclick="logout()" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
     </header>
 
     <main>
@@ -537,6 +564,36 @@
             document.cookie = "session_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             window.location.href = '/admin/login.html';
         }
+
+        // --- AI Mode Logic ---
+        function toggleAIMode() {
+            let isEnabled = sessionStorage.getItem('aiModeEnabled') === 'true';
+            isEnabled = !isEnabled;
+            sessionStorage.setItem('aiModeEnabled', isEnabled);
+            updateAIUI(isEnabled);
+        }
+
+        function updateAIUI(isEnabled) {
+            const btn = document.getElementById('ai-toggle-btn');
+            const homeLink = document.querySelector('.home-btn');
+            
+            if (isEnabled) {
+                btn.classList.add('active');
+                btn.innerHTML = '<i class="fas fa-robot"></i> AI Mode: ON';
+                homeLink.href = "/index.html?ai-mode=true";
+                // Optionally preload the script/check if needed, but the query param handles the logic on index.html
+            } else {
+                btn.classList.remove('active');
+                btn.innerHTML = '<i class="fas fa-robot"></i> AI Mode: OFF';
+                homeLink.href = "/index.html";
+            }
+        }
+
+        // Initialize state on load
+        document.addEventListener('DOMContentLoaded', () => {
+            const isEnabled = sessionStorage.getItem('aiModeEnabled') === 'true';
+            updateAIUI(isEnabled);
+        });
 
         // Initialize
         checkAuth();
