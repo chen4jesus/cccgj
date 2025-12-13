@@ -453,6 +453,10 @@ const initEditor = () => {
             </div>
             <div class="ai-modal-body">
                 <div style="margin-bottom: 15px;">
+                    <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">Link Text</label>
+                    <input type="text" id="link-text-input" placeholder="Click here" 
+                           style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 15px;">
+
                     <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">Link URL</label>
                     <input type="text" id="link-url-input" placeholder="https://example.com" 
                            style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
@@ -461,10 +465,18 @@ const initEditor = () => {
                     <button id="link-cancel-btn" class="editor-btn">Cancel</button>
                     <button id="link-save-btn" class="editor-btn btn-save">Apply</button>
                 </div>
+                </div>
             </div>
         </div>
     `;
     document.body.appendChild(linkModal);
+
+    // Link Action Tooltip - Appended to body separately
+    const linkTooltip = document.createElement('div');
+    linkTooltip.id = 'link-action-tooltip';
+    linkTooltip.style.cssText = "position: absolute; z-index: 10002; background: #333; color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; display: none; pointer-events: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.3);";
+    linkTooltip.innerHTML = `<button id="tooltip-edit-btn" style="background: none; border: none; color: white; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 5px;">Edit Link <i class="fas fa-pencil-alt"></i></button>`;
+    document.body.appendChild(linkTooltip);
 
     // 3. Toggles
     toggleEditBtn.addEventListener('click', () => {
@@ -544,12 +556,15 @@ const initEditor = () => {
             img.style.cursor = 'pointer';
         });
 
-        // 4. Links (prevent navigation, allow editing)
+        // 4. Links (prevent navigation, show tooltip on click)
         document.querySelectorAll('a').forEach(link => {
             if (!editorToolbar.contains(link)) {
                 link.addEventListener('click', handleLinkClick);
             }
         });
+
+        // Global click to custom tooltip handling
+        document.addEventListener('click', handleGlobalClick);
     }
 
     function disableEditMode() {
@@ -562,6 +577,8 @@ const initEditor = () => {
         document.querySelectorAll('a').forEach(link => {
             link.removeEventListener('click', handleLinkClick);
         });
+        document.removeEventListener('click', handleGlobalClick);
+        hideLinkTooltip();
     }
 
     // 5. AI Inspector Logic
@@ -865,14 +882,70 @@ const initEditor = () => {
     function handleLinkClick(e) {
         e.preventDefault();
         e.stopPropagation();
-        activeLinkElement = e.currentTarget; // Use currentTarget for the <a> itself
+        activeLinkElement = e.currentTarget; 
         
-        const linkModal = document.getElementById('link-editor-modal');
-        const urlInput = document.getElementById('link-url-input');
+        // Show Tooltip
+        const tooltip = document.getElementById('link-action-tooltip');
+        const rect = activeLinkElement.getBoundingClientRect();
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
         
-        urlInput.value = activeLinkElement.href;
-        linkModal.classList.remove('hidden');
+        tooltip.style.top = (rect.top + scrollTop - 40) + 'px'; // Position above
+        tooltip.style.left = (rect.left + scrollLeft) + 'px';
+        tooltip.style.display = 'block';
     }
+
+    function hideLinkTooltip() {
+        const tooltip = document.getElementById('link-action-tooltip');
+        if(tooltip) tooltip.style.display = 'none';
+    }
+
+    function handleGlobalClick(e) {
+        const tooltip = document.getElementById('link-action-tooltip');
+        if (tooltip && tooltip.style.display === 'block') {
+            // If click is not on tooltip and not on a link, hide it
+            if (!tooltip.contains(e.target) && !e.target.closest('a')) {
+                hideLinkTooltip();
+            }
+        }
+    }
+
+    // Tooltip Edit Button
+    document.getElementById('tooltip-edit-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        hideLinkTooltip();
+        
+        if (activeLinkElement) {
+             const linkModal = document.getElementById('link-editor-modal');
+            const urlInput = document.getElementById('link-url-input');
+            const textInput = document.getElementById('link-text-input');
+            
+            const currentHref = activeLinkElement.getAttribute('href');
+            
+            // Safe Text Handling: Check if link has HTML children (like the resource cards)
+            if (activeLinkElement.children.length > 0) {
+                // Complex structure: Disable text editing to prevent wiping out HTML
+                textInput.value = "(Complex HTML Content - URL Only)";
+                textInput.disabled = true;
+                textInput.style.backgroundColor = "#eee";
+                textInput.style.color = "#999";
+                textInput.removeAttribute('data-original');
+            } else {
+                // Simple text link
+                const currentText = activeLinkElement.innerText;
+                textInput.value = currentText;
+                textInput.disabled = false;
+                textInput.style.backgroundColor = "white";
+                textInput.style.color = "black";
+                textInput.setAttribute('data-original', currentText);
+            }
+
+            urlInput.value = currentHref;
+            
+            linkModal.classList.remove('hidden');
+        }
+    });
 
     document.getElementById('link-cancel-btn').addEventListener('click', () => {
         document.getElementById('link-editor-modal').classList.add('hidden');
@@ -881,8 +954,20 @@ const initEditor = () => {
 
     document.getElementById('link-save-btn').addEventListener('click', () => {
         const newHref = document.getElementById('link-url-input').value;
+        const newText = document.getElementById('link-text-input').value;
+        const inputElement = document.getElementById('link-text-input');
+        
         if (activeLinkElement) {
             activeLinkElement.href = newHref;
+            
+            // Only update text if NOT disabled (simple link) AND text changed
+            if (!inputElement.disabled) {
+                 const originalText = inputElement.getAttribute('data-original');
+                 if (newText !== originalText) {
+                    activeLinkElement.innerText = newText;
+                 }
+            }
+            
             document.getElementById('link-editor-modal').classList.add('hidden');
         }
     });
@@ -895,7 +980,7 @@ const initEditor = () => {
         disableEditMode();
         toggleAIMode(false);
         const clone = document.documentElement.cloneNode(true);
-        const elsToRemove = clone.querySelectorAll('#admin-editor-toolbar, .ai-highlighter, .ai-action-btn, .ai-modal, #admin-editor-styles, #image-editor-modal, #link-editor-modal');
+        const elsToRemove = clone.querySelectorAll('#admin-editor-toolbar, .ai-highlighter, .ai-action-btn, .ai-modal, #link-action-tooltip, #admin-editor-styles, #image-editor-modal, #link-editor-modal');
         elsToRemove.forEach(el => el.remove());
         
         // Remove injected aiditor.js script to prevent duplication
