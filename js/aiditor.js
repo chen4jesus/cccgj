@@ -322,11 +322,6 @@ const initEditor = () => {
     const styleSheet = document.createElement("style");
     styleSheet.innerText = editorStyles;
     document.head.appendChild(styleSheet);
-    
-    // 0.1 Inject html2canvas for screenshots
-    const script = document.createElement('script');
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-    document.head.appendChild(script);
 
 
     // 1. Create and Inject Editor Toolbar
@@ -626,51 +621,7 @@ const initEditor = () => {
         statusMsg.style.display = 'block';
         statusMsg.style.color = '#003366';
 
-        // Capture Screenshot
-        statusMsg.textContent = "Capturing visual context...";
-        
-        let visualContext = null;
-        if (typeof html2canvas !== 'undefined') {
-             try {
-                 // Strategy: Capture full body with crop, while ignoring editor UI
-                 const rect = selectedElement.getBoundingClientRect();
-                 const safeMargin = 50; 
-                 
-                 html2canvas(document.body, { 
-                     useCORS: true,
-                     scale: 1.5,
-                     backgroundColor: '#ffffff',
-                     scrollX: 0,
-                     scrollY: -window.scrollY,
-                     windowWidth: document.documentElement.scrollWidth,
-                     windowHeight: document.documentElement.scrollHeight,
-                     x: rect.x + window.scrollX - safeMargin,
-                     y: rect.y + window.scrollY - safeMargin,
-                     width: rect.width + (safeMargin * 2),
-                     height: rect.height + (safeMargin * 2),
-                     ignoreElements: (element) => {
-                         if (!element || !element.classList) return false;
-                         return element.id === 'admin-editor-toolbar' || 
-                                element.classList.contains('ai-highlighter') || 
-                                element.classList.contains('ai-action-btn') || 
-                                element.classList.contains('ai-modal');
-                     }
-                 }).then(canvas => {
-                     visualContext = canvas.toDataURL('image/png');
-                     sendAIRequest(promptText, htmlSnippet, visualContext);
-                 }).catch(err => {
-                     console.error("Screenshot failed:", err);
-                     sendAIRequest(promptText, htmlSnippet, null);
-                 }).finally(() => {
-                     // Restore Overlay (optional, usually we close modal anyway)
-                 });
-                 return; // Async flow
-             } catch(e) {
-                 console.error("Visual capture error:", e);
-             }
-        }
-
-        // Fallback or explicit call
+        // Explicit call
         sendAIRequest(promptText, htmlSnippet, null);
 
         function sendAIRequest(prompt, context, imageBase64) {

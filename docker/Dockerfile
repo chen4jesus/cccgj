@@ -15,8 +15,8 @@ COPY . /app
 VOLUME /app/data
 
 # Make sure the server knows where to look for the DB if we change paths
-# For now, server.py uses local directory, so we just persist the file (contacts.db)
-# We might need to ensure contacts.db is writable. 
+# For now, server.py uses local directory, so we just persist the file (churchdata.db)
+# We might need to ensure churchdata.db is writable. 
 
 # Install Nginx
 RUN apt-get update && apt-get install -y nginx && rm -rf /var/lib/apt/lists/*

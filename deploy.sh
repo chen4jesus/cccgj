@@ -1,12 +1,5 @@
 #!/bin/bash
 
-# Determine script absolute path and project root
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-
-# Ensure we are executing from the project root
-cd "$PROJECT_ROOT"
-
 # Configuration
 IMAGE_NAME="churchsite"
 CONTAINER_NAME="churchsite_server"
@@ -15,7 +8,6 @@ DATA_DIR="./church_data"
 ADMIN_PASSWORD="admin123admin456"
 
 echo "Deploying Church Website..."
-echo "Project Root: $PROJECT_ROOT"
 
 # 1. Stop and remove existing container if it exists
 if [ "$(docker ps -aq -f name=$CONTAINER_NAME)" ]; then
@@ -27,8 +19,7 @@ fi
 
 # 2. Build the Docker image
 echo "Building Docker image..."
-# Context is now guaranteed to be PROJECT_ROOT
-docker build -f docker/Dockerfile -t $IMAGE_NAME .
+docker build -t $IMAGE_NAME .
 
 # 3. Create data directory for persistence
 mkdir -p $DATA_DIR
@@ -43,8 +34,8 @@ echo "Starting updated container..."
 docker run -d \
     --name $CONTAINER_NAME \
     -p 80:8000 \
-    -v "$PROJECT_ROOT/$DATA_DIR:/app/data" \
-    -v "$PROJECT_ROOT/docker/nginx.conf:/etc/nginx/conf.d/default.conf" \
+    -v "$(pwd)/$DATA_DIR:/app/data" \
+    -v "$(pwd)/nginx.conf:/etc/nginx/conf.d/default.conf" \
     -e DB_FILE="/app/data/churchdata.db" \
     -e ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
     --restart unless-stopped \
@@ -52,5 +43,5 @@ docker run -d \
 
 echo "Deployment complete!"
 echo "Site is running at http://localhost:80"
-echo "Database is persisted in $PROJECT_ROOT/$DATA_DIR/churchdata.db"
-echo "Nginx config is mounted from $PROJECT_ROOT/docker/nginx.conf"
+echo "Database is persisted in $(pwd)/$DATA_DIR/churchdata.db"
+echo "Nginx config is mounted from $(pwd)/nginx.conf"

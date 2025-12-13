@@ -3,22 +3,16 @@ import http.server
 import http.cookies
 import socketserver
 import json
-import subprocess
 import os
-import sys
 import secrets
-import shutil
 import sqlite3
-import datetime
 import time
-import base64
 import aissistant
 
 PORT = int(os.getenv('PORT', 8000))
-DB_FILE = os.getenv('DB_FILE', 'contacts.db')
+DB_FILE = os.getenv('DB_FILE', 'churchdata.db')
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'admin123')
 UPLOAD_DIR = os.path.join(os.getcwd(), 'upload')
-CAPTURES_DIR = os.path.join(os.getcwd(), 'captures')
 
 # Simple in-memory session store: token -> timestamp
 SESSIONS = {}
@@ -26,9 +20,6 @@ SESSION_TIMEOUT = 3600  # 1 hour
 
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
-
-if not os.path.exists(CAPTURES_DIR):
-    os.makedirs(CAPTURES_DIR)
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -269,7 +260,7 @@ class ServerHandler(http.server.SimpleHTTPRequestHandler):
                 data = json.loads(post_data)
                 
                 # Delegate to AI Assistant Module
-                response = aissistant.handle_ai_request(data, CAPTURES_DIR, DB_FILE)
+                response = aissistant.handle_ai_request(data, DB_FILE)
                 
                 # Send Response
                 self.send_response(200)
