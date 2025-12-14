@@ -388,15 +388,25 @@ const initEditor = () => {
     const aiModal = document.createElement('div');
     aiModal.className = 'ai-modal hidden';
     aiModal.innerHTML = `
-        <div class="ai-modal-content">
-            <div class="ai-modal-header">
+        <div class="ai-modal-content" style="max-width: 500px;">
+            <div class="ai-modal-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h3>Ask AI Agent</h3>
+                <button id="ai-cancel-btn" class="editor-btn" style="background:none; border:none; font-size:24px; cursor:pointer; color:#666; padding:0; height:auto; width:auto;">&times;</button>
             </div>
             <div class="ai-modal-body">
-                <p>Describe what you want to change about this element:</p>
-                <textarea id="ai-prompt-input" placeholder="e.g., Make this text bigger and red..."></textarea>
+                <p style="font-size:12px; color:#666; margin-bottom:10px;">
+                    Describe what you want to change. The AI will edit the HTML for you.
+                </p>
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">Model:</label>
+                    <select id="ai-model-select" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                        <option value="claude-3-5-sonnet-20240620" selected>Claude 3.5 Sonnet (Recommended)</option>
+                        <option value="claude-3-opus-20240229">Claude 3 Opus (Most Powerful)</option>
+                        <option value="claude-3-haiku-20240307">Claude 3 Haiku (Fastest)</option>
+                    </select>
+                </div>
+                <textarea id="ai-prompt-input" rows="20" placeholder="e.g., Make this text bigger and red..." style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 15px; font-family: inherit; font-size: 13px; line-height: 1.5; resize: vertical; height: 240px;"></textarea>
                 <div class="ai-modal-actions">
-                    <button id="ai-cancel-btn" class="editor-btn">Cancel</button>
                     <button id="ai-generate-btn" class="editor-btn btn-save">Send to Agent</button>
                 </div>
                 <div id="ai-status-msg" style="margin-top:10px; font-size:12px; color:#666; display:none;">Processing...</div>
@@ -689,8 +699,15 @@ const initEditor = () => {
     });
 
     document.getElementById('ai-generate-btn').addEventListener('click', () => {
-        const promptText = document.getElementById('ai-prompt-input').value;
-        if (!promptText || !selectedElement) return;
+        const promptInput = document.getElementById('ai-prompt-input');
+        const modelSelect = document.getElementById('ai-model-select');
+        const promptText = promptInput.value.trim();
+        const model = modelSelect ? modelSelect.value : 'claude-3-5-sonnet-20240620'; // Default to Sonnet if select not found
+        
+        if (!promptText || !selectedElement) {
+            alert("Please enter a prompt and ensure an element is selected.");
+            return;
+        }
 
         const htmlSnippet = selectedElement.outerHTML;
         const statusMsg = document.getElementById('ai-status-msg');
@@ -699,13 +716,10 @@ const initEditor = () => {
         statusMsg.style.display = 'block';
         statusMsg.style.color = '#003366';
 
-        statusMsg.style.display = 'block';
-        statusMsg.style.color = '#003366';
-
         // Explicit call
-        sendAIRequest(promptText, htmlSnippet, null);
+        sendAIRequest(promptText, htmlSnippet, null, model);
 
-        function sendAIRequest(prompt, context, imageBase64) {
+        function sendAIRequest(prompt, context, imageBase64, model) {
             statusMsg.textContent = "Sending to AI Agent... please wait.";
             fetch('/api/ask-ai', {
                 method: 'POST',
@@ -713,21 +727,21 @@ const initEditor = () => {
                 body: JSON.stringify({
                     prompt: prompt,
                     context: context,
-                    image: imageBase64
+                    image: imageBase64,
+                    model: model
                 })
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    statusMsg.textContent = "AI Agent responded! Check your terminal or reload if changes were applied.";
-                    statusMsg.style.color = 'green';
-                    alert("AI Agent Output:\n" + data.output); 
-                    setTimeout(() => {
-                        aiModal.classList.add('hidden');
-                        toggleAIMode(false);
-                    }, 2000);
+                if (data.job_id) {
+                    statusMsg.textContent = "AI Task Accepted. Processing in background... (will auto-refresh)";
+                    statusMsg.style.color = '#003366';
+                    pollAIJob(data.job_id, prompt, context);
+                } else if (data.success) {
+                    // Fallback for sync
+                    handleAISuccess(data.output);
                 } else {
-                    handleAIError(data, prompt, context); // Refactored error handling below
+                    handleAIError(data, prompt, context); 
                 }
             })
             .catch(err => {
@@ -736,12 +750,59 @@ const initEditor = () => {
                 statusMsg.style.color = 'red';
             });
         }
+
+        function pollAIJob(jobId, prompt, context) {
+            const statusMsg = document.getElementById('ai-status-msg');
+            
+            setTimeout(() => {
+                fetch(`/api/ai-status/${jobId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'processing') {
+                         statusMsg.textContent = "Processing... (Please wait)";
+                         pollAIJob(jobId, prompt, context); // Recurse
+                    } else if (data.status === 'completed') {
+                         const result = data.result;
+                         if (result.success) {
+                             handleAISuccess(result.output);
+                         } else {
+                             handleAIError(result, prompt, context);
+                         }
+                    } else if (data.status === 'error') {
+                        statusMsg.textContent = "Error: " + (data.error || "Unknown job error");
+                        statusMsg.style.color = 'red';
+                    } else {
+                        // Job not found or other
+                        statusMsg.textContent = "Error: Job lost or expired.";
+                        statusMsg.style.color = 'red';
+                    }
+                })
+                .catch(err => {
+                    console.error("Polling error", err);
+                    statusMsg.textContent = "Connection error during polling. Retrying...";
+                    pollAIJob(jobId, prompt, context); // Retry on network blip
+                });
+            }, 3000); // 3 seconds per user request
+        }
+
+        function handleAISuccess(output) {
+            const statusMsg = document.getElementById('ai-status-msg');
+            statusMsg.textContent = "AI Agent responded! Check your terminal or reload if changes were applied.";
+            statusMsg.style.color = 'green';
+            alert("AI Agent Output:\n" + output); 
+            setTimeout(() => {
+                aiModal.classList.add('hidden');
+                toggleAIMode(false);
+            }, 2000);
+        }
         
         function handleAIError(data, promptText, htmlSnippet) {
              const statusMsg = document.getElementById('ai-status-msg');
-             if (data.error === 'CLAUDE_NOT_FOUND') {
+             
+             // Check if the backend provided a fallback prompt (indicating CLI missing or failed)
+             if (data.prompt_for_clipboard || (data.error && data.error.includes('CLI'))) {
                 // ... Existing fallback logic ...
-                const fullPrompt = `Task: ${promptText}\n\nContext HTML:\n${htmlSnippet}`;            
+                const fullPrompt = data.prompt_for_clipboard || `Task: ${promptText}\n\nContext HTML:\n${htmlSnippet}`;            
     
                 const copyToClipboard = (text) => {
                     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -777,9 +838,21 @@ const initEditor = () => {
                         toggleAIMode(false);
                     }, 2000);
                 }).catch(() => {
-                        // Ultimate fallback if copy fails
-                        window.prompt("Copy this prompt:", fullPrompt);
-                        statusMsg.textContent = "Please manually copy the prompt.";
+                        // Async Clipboard Failure (likely no user gesture)
+                        statusMsg.innerHTML = `
+                            <span style="color: red;">Claude CLI missing & Auto-Copy failed.</span><br>
+                            <button id="manual-copy-btn" style="margin-top:5px; padding:5px 10px; cursor:pointer;">Click to Copy Prompt</button>
+                        `;
+                        // Bind click to the new button
+                        setTimeout(() => {
+                            const btn = document.getElementById('manual-copy-btn');
+                            if(btn) btn.onclick = () => {
+                                copyToClipboard(fullPrompt).then(() => {
+                                    alert("Copied to clipboard!");
+                                    aiModal.classList.add('hidden');
+                                });
+                            };
+                        }, 100);
                 });
             } else {
                 statusMsg.textContent = "Error: " + (data.error || "Unknown error");
