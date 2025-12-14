@@ -963,7 +963,16 @@ const initEditor = () => {
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
         const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
         
-        tooltip.style.top = (rect.top + scrollTop - 40) + 'px'; // Position above
+        const tooltipHeight = 40; // Approx height
+        
+        let topPos = rect.top + scrollTop - tooltipHeight - 5;
+        // Check if tooltip goes off-screen (top)
+        if (rect.top < (tooltipHeight + 10)) {
+            // Not enough space above, show below
+            topPos = rect.bottom + scrollTop + 5;
+        }
+
+        tooltip.style.top = topPos + 'px';
         tooltip.style.left = (rect.left + scrollLeft) + 'px';
         tooltip.style.display = 'block';
     }
