@@ -45,6 +45,7 @@ docker run -d \
     -p 80:8000 \
     -v "$PROJECT_ROOT/$DATA_DIR:/app/data" \
     -v "$PROJECT_ROOT/docker/nginx.conf:/etc/nginx/conf.d/default.conf" \
+    -v "$PROJECT_ROOT/backups:/app/backups" \
     -e DB_FILE="/app/data/churchdata.db" \
     -e ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
     --restart unless-stopped \
