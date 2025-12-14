@@ -8,7 +8,7 @@ WORKDIR /app
 COPY . /app
 
 # Install Python dependencies
-RUN pip install --no-cache-dir flask anthracite-cli
+RUN pip install --no-cache-dir flask
 
 # Create volume for persistent SQLite database
 VOLUME /app/data
