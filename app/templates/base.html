@@ -104,6 +104,458 @@
     </footer>
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+
+<!-- AI SMART EDIT INJECTION START -->
+<script>
+window.__AI_SMART_EDIT_FILE__ = "app/templates/base.html";
+(function () {
+  const NAMESPACE = 'AI_SMART_EDIT';
+  
+  // State
+  let isActive = false;
+  let isEditMode = false;
+  let overlay = null;
+  let selectedOverlay = null;
+
+  // --- Overlay Management ---
+  function createOverlay(id, color, zIndex) {
+    const el = document.createElement('div');
+    el.id = id;
+    el.style.cssText = `
+      position: absolute;
+      border: 2px solid ${color};
+      background-color: ${color}33;
+      pointer-events: none;
+      z-index: ${zIndex};
+      display: none;
+      transition: all 0.1s ease-out;
+    `;
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function ensureOverlays() {
+    if (!overlay) overlay = createOverlay('ai-smart-edit-hover', '#0070f3', '2147483646');
+    if (!selectedOverlay) selectedOverlay = createOverlay('ai-smart-edit-selected', '#f5a623', '2147483647');
+  }
+
+  // --- Utility Functions ---
+  function getStableSelector(el) {
+    if (el.id) return `#${el.id}`;
+    let path = [];
+    while (el && el.nodeType === Node.ELEMENT_NODE) {
+      let selector = el.nodeName.toLowerCase();
+      if (el.className && typeof el.className === 'string') {
+        const classes = el.className.trim().split(/\s+/).filter(c => c && !c.startsWith('ai-smart-edit'));
+        if (classes.length) selector += `.${classes.join('.')}`;
+      }
+      let siblingIndex = 1;
+      let sibling = el.previousElementSibling;
+      while (sibling) {
+        if (sibling.nodeName === el.nodeName) siblingIndex++;
+        sibling = sibling.previousElementSibling;
+      }
+      if (siblingIndex > 1) selector += `:nth-of-type(${siblingIndex})`;
+      path.unshift(selector);
+      el = el.parentNode;
+    }
+    return path.join(' > ');
+  }
+
+  function updateOverlay(overlayEl, targetEl) {
+    if (!targetEl) {
+      overlayEl.style.display = 'none';
+      return;
+    }
+    const rect = targetEl.getBoundingClientRect();
+    const scrollX = window.scrollX || window.pageXOffset;
+    const scrollY = window.scrollY || window.pageYOffset;
+
+    overlayEl.style.display = 'block';
+    overlayEl.style.left = `${rect.left + scrollX}px`;
+    overlayEl.style.top = `${rect.top + scrollY}px`;
+    overlayEl.style.width = `${rect.width}px`;
+    overlayEl.style.height = `${rect.height}px`;
+  }
+
+  function captureContext(el) {
+    const rect = el.getBoundingClientRect();
+    const computed = window.getComputedStyle(el);
+    const parent = el.parentElement;
+    
+    return {
+      tagName: el.tagName.toLowerCase(),
+      id: el.id || '',
+      className: el.className instanceof String ? el.className.trim() : (el.classList ? Array.from(el.classList).join(' ') : ''),
+      rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
+      computedStyles: {
+        display: computed.display,
+        position: computed.position,
+        color: computed.color,
+        backgroundColor: computed.backgroundColor,
+        fontFamily: computed.fontFamily,
+        fontSize: computed.fontSize,
+        fontWeight: computed.fontWeight,
+        lineHeight: computed.lineHeight,
+        margin: computed.margin,
+        padding: computed.padding,
+        border: computed.border,
+        borderRadius: computed.borderRadius,
+        zIndex: computed.zIndex,
+        textAlign: computed.textAlign,
+        opacity: computed.opacity,
+        visibility: computed.visibility
+      },
+      innerText: el.innerText ? el.innerText.substring(0, 300).trim() : '',
+      html: el.outerHTML || '',
+      innerHTML: el.innerHTML ? el.innerHTML.substring(0, 300).trim() : '',
+      selector: getStableSelector(el),
+      parent: parent ? { tagName: parent.tagName.toLowerCase(), id: parent.id || '' } : null,
+      url: window.location.href,
+      route: window.location.pathname,
+      viewport: { width: window.innerWidth, height: window.innerHeight }
+    };
+  }
+
+  // --- Selection Mode Handlers ---
+  function handleMouseOver(e) {
+    if (!isActive || isEditMode) return;
+    updateOverlay(overlay, e.target);
+  }
+
+  function handleClick(e) {
+    if (!isActive || isEditMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const target = e.target;
+    updateOverlay(selectedOverlay, target);
+    
+    const context = captureContext(target);
+    window.parent.postMessage({
+      type: `${NAMESPACE}:SELECTED`,
+      payload: context
+    }, '*');
+  }
+
+  // --- Edit Mode Styles ---
+  function injectEditStyles() {
+    if (document.getElementById('ai-smart-edit-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'ai-smart-edit-styles';
+    style.textContent = `
+      .ai-smart-edit-editing [contenteditable="true"] {
+        outline: 2px dashed rgba(0, 150, 255, 0.5) !important;
+        padding: 4px !important;
+        border-radius: 4px !important;
+        transition: all 0.2s !important;
+      }
+      .ai-smart-edit-editing [contenteditable="true"]:hover,
+      .ai-smart-edit-editing [contenteditable="true"]:focus {
+        outline: 2px solid #0096ff !important;
+        background: rgba(0, 150, 255, 0.05) !important;
+        box-shadow: 0 0 15px rgba(0, 150, 255, 0.2) !important;
+      }
+      .ai-smart-edit-editing img {
+        cursor: pointer !important;
+        transition: all 0.2s !important;
+      }
+      .ai-smart-edit-editing img:hover {
+        outline: 3px solid #f5a623 !important;
+        box-shadow: 0 0 15px rgba(245, 166, 35, 0.3) !important;
+      }
+      .ai-smart-edit-editing a {
+        position: relative !important;
+      }
+      .ai-smart-edit-editing a::after {
+        content: '✎';
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: #333;
+        color: white;
+        font-size: 10px;
+        padding: 2px 4px;
+        border-radius: 3px;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+      }
+      .ai-smart-edit-editing a:hover::after {
+        opacity: 1;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // --- Edit Mode Functions ---
+  function enableEditMode() {
+    isEditMode = true;
+    injectEditStyles();
+    document.body.classList.add('ai-smart-edit-editing');
+    
+    // Make text elements editable
+    const textSelectors = 'h1, h2, h3, h4, h5, h6, p, span, li, td, th, label, blockquote, figcaption';
+    document.querySelectorAll(textSelectors).forEach(el => {
+      if (el.closest('#ai-smart-edit-hover, #ai-smart-edit-selected')) return;
+      el.contentEditable = 'true';
+    });
+
+    // Divs with direct text content
+    document.querySelectorAll('div').forEach(el => {
+      if (el.closest('#ai-smart-edit-hover, #ai-smart-edit-selected')) return;
+      for (let node of el.childNodes) {
+        if (node.nodeType === 3 && node.textContent.trim().length > 0) {
+          el.contentEditable = 'true';
+          break;
+        }
+      }
+    });
+
+    // Add image click handlers
+    document.querySelectorAll('img').forEach(img => {
+      img.addEventListener('click', handleImageClick, true);
+    });
+
+    // Add link click handlers
+    document.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', handleLinkClick, true);
+    });
+  }
+
+  function disableEditMode() {
+    isEditMode = false;
+    document.body.classList.remove('ai-smart-edit-editing');
+    
+    // Remove contentEditable
+    document.querySelectorAll('[contenteditable="true"]').forEach(el => {
+      el.contentEditable = 'false';
+    });
+
+    // Remove image handlers
+    document.querySelectorAll('img').forEach(img => {
+      img.removeEventListener('click', handleImageClick, true);
+    });
+
+    // Remove link handlers
+    document.querySelectorAll('a').forEach(link => {
+      link.removeEventListener('click', handleLinkClick, true);
+    });
+  }
+
+  function handleImageClick(e) {
+    if (!isEditMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const img = e.target;
+    const context = {
+      selector: getStableSelector(img),
+      src: img.src,
+      alt: img.alt || '',
+      width: img.naturalWidth,
+      height: img.naturalHeight
+    };
+    
+    window.parent.postMessage({
+      type: `${NAMESPACE}:IMAGE_CLICK`,
+      payload: context
+    }, '*');
+  }
+
+  function handleLinkClick(e) {
+    if (!isEditMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const link = e.currentTarget;
+    const context = {
+      selector: getStableSelector(link),
+      href: link.getAttribute('href') || '',
+      text: link.innerText || '',
+      hasChildren: link.children.length > 0
+    };
+    
+    window.parent.postMessage({
+      type: `${NAMESPACE}:LINK_CLICK`,
+      payload: context
+    }, '*');
+  }
+
+  function updateImage(selector, src) {
+    try {
+      const img = document.querySelector(selector);
+      if (img && img.tagName === 'IMG') {
+        img.src = src;
+      }
+    } catch (err) {
+      console.error('[AI Smart Edit] Failed to update image:', err);
+    }
+  }
+
+  function updateLink(selector, href, text) {
+    try {
+      const link = document.querySelector(selector);
+      if (link && link.tagName === 'A') {
+        link.href = href;
+        // Only update text if it's a simple text link (no child elements)
+        if (text !== undefined && link.children.length === 0) {
+          link.innerText = text;
+        }
+      }
+    } catch (err) {
+      console.error('[AI Smart Edit] Failed to update link:', err);
+    }
+  }
+
+  function savePage() {
+    // Clone the document
+    const clone = document.documentElement.cloneNode(true);
+    
+    // Remove our overlays and styles
+    const toRemove = clone.querySelectorAll('#ai-smart-edit-hover, #ai-smart-edit-selected, #ai-smart-edit-styles');
+    toRemove.forEach(el => el.remove());
+    
+    // Remove AI Smart Edit script (both with src and inlined)
+    clone.querySelectorAll('script').forEach(s => {
+      if (s.src && s.src.includes('ai-smart-edit.js')) {
+        s.remove();
+      } else if (s.textContent && s.textContent.includes('window.__AI_SMART_EDIT_FILE__')) {
+        // Also remove the marker comments if they were accidentally captured as text nodes (unlikely but safe)
+        s.remove();
+      }
+    });
+
+    // Note: Comments like <!-- AI SMART EDIT INJECTION START --> are harder to remove from DOM clone 
+    // without iterating all nodes. We rely on the server-side cleanup to remove them.
+    
+    // Clean up contentEditable and editing class
+    clone.querySelectorAll('[contenteditable]').forEach(el => {
+      el.removeAttribute('contenteditable');
+    });
+    const body = clone.querySelector('body');
+    if (body) body.classList.remove('ai-smart-edit-editing');
+    
+    // Clean up empty style/class attributes
+    clone.querySelectorAll('*').forEach(el => {
+      if (el.hasAttribute('style') && el.getAttribute('style').trim() === '') {
+        el.removeAttribute('style');
+      }
+      if (el.classList && el.classList.length === 0 && el.hasAttribute('class')) {
+        el.removeAttribute('class');
+      }
+    });
+    
+    const htmlContent = '<!DOCTYPE html>\n' + clone.outerHTML;
+    
+    window.parent.postMessage({
+      type: `${NAMESPACE}:PAGE_CONTENT`,
+      payload: {
+        html: htmlContent,
+        route: window.location.pathname,
+        filePath: window.__AI_SMART_EDIT_FILE__ || null
+      }
+    }, '*');
+  }
+
+  // --- Message Handler ---
+  function handleGenericMessage(e) {
+    if (!e.data || !e.data.type) return;
+
+    switch (e.data.type) {
+      case `${NAMESPACE}:PING`:
+        window.parent.postMessage({ type: `${NAMESPACE}:PONG` }, '*');
+        break;
+        
+      case `${NAMESPACE}:ENABLE`:
+        isActive = true;
+        ensureOverlays();
+        document.body.style.cursor = 'crosshair';
+        document.addEventListener('mouseover', handleMouseOver, true);
+        document.addEventListener('click', handleClick, true);
+        break;
+        
+      case `${NAMESPACE}:DISABLE`:
+        isActive = false;
+        if (isEditMode) disableEditMode();
+        if (overlay) overlay.style.display = 'none';
+        if (selectedOverlay) selectedOverlay.style.display = 'none';
+        document.body.style.cursor = '';
+        document.removeEventListener('mouseover', handleMouseOver, true);
+        document.removeEventListener('click', handleClick, true);
+        break;
+        
+      case `${NAMESPACE}:EDIT_MODE_ENABLE`:
+        enableEditMode();
+        break;
+        
+      case `${NAMESPACE}:EDIT_MODE_DISABLE`:
+        disableEditMode();
+        break;
+        
+      case `${NAMESPACE}:UPDATE_IMAGE`:
+        if (e.data.payload) {
+          updateImage(e.data.payload.selector, e.data.payload.src);
+        }
+        break;
+        
+      case `${NAMESPACE}:UPDATE_LINK`:
+        if (e.data.payload) {
+          updateLink(e.data.payload.selector, e.data.payload.href, e.data.payload.text);
+        }
+        break;
+        
+      case `${NAMESPACE}:SAVE_PAGE`:
+        savePage();
+        break;
+    }
+  }
+
+  // --- Initialize ---
+  window.addEventListener('message', handleGenericMessage);
+
+  // Handle Scroll to detect bottom
+  let scrollTimeout;
+  const onScroll = () => {
+    if (!isActive) return;
+    
+    if (scrollTimeout) cancelAnimationFrame(scrollTimeout);
+    
+    scrollTimeout = requestAnimationFrame(() => {
+      const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
+      const scrollTop = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
+      const clientHeight = window.innerHeight || document.documentElement.clientHeight;
+      
+      const isBottom = (scrollTop + clientHeight) >= (scrollHeight - 100);
+      
+      window.parent.postMessage({
+        type: `${NAMESPACE}:SCROLL_UPDATE`,
+        payload: { isBottom }
+      }, '*');
+    });
+  };
+  
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
+
+  // Handle ESC key to exit
+  document.addEventListener('keydown', (e) => {
+    if (isActive && e.key === 'Escape') {
+      isActive = false;
+      if (isEditMode) disableEditMode();
+      document.body.style.cursor = '';
+      if (overlay) overlay.style.display = 'none';
+      if (selectedOverlay) selectedOverlay.style.display = 'none';
+      window.parent.postMessage({ type: `${NAMESPACE}:DISABLE` }, '*');
+    }
+  });
+
+  console.log('[AI Smart Edit] Target script loaded with edit mode support.');
+})();
+
+</script>
+<!-- AI SMART EDIT INJECTION END -->
 </body>
 </html>
 
