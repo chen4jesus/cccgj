@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home | CCCGJ</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="/static/images/favicon.svg" type="image/svg+xml">
+    
+</head>
+<body style="cursor: crosshair;">
+
+    <!-- Navigation -->
+    <header id="main-header">
+        <div class="nav-container">
+            <a href="/" class="logo">
+                CCCGJ
+                <span class="logo-subtitle">杰克逊华人基督教会</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="/" class="active">Home<span>首页</span></a></li>
+                <li><a href="/about">About Us<span>关于我们</span></a></li>
+                <li><a href="/ministry">Ministries<span>事工</span></a></li>
+                <li><a href="/resources">Resources<span>资源</span></a></li>
+                <li><a href="/tithing">Giving<span>奉献</span></a></li>
+                <li><a href="/contact">Contact Us<span>联系我们</span></a></li>
+            </ul>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </header>
+
+    
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="hero-content container">
+        <h1>Welcome to CCCGJ 杰克逊华人基督教会</h1>
+        <div class="hero-slogans">
+          <div class="slogan-item">Grow In Christ 基督里成长</div>
+          <div class="slogan-item">Serve God's Kingdom 为神国服侍</div>
+          <div class="slogan-item">Reach All Nation 向万民宣教</div>
+        </div>
+        <a href="/contact" class="btn btn-secondary">Plan a Visit 计划来访</a>
+      </div>
+    </section>
+
+    <!-- Welcome Section -->
+    <section class="section-padding">
+      <div class="container text-center">
+        <h2 style="font-family: var(--font-heading); margin-bottom: 20px">
+          About CCCGJ 关于杰克逊华人基督教会
+        </h2>
+        <p style="max-width: 800px; margin: 0 auto; color: #555">
+          </p><div class="container text-center about-text">Founded in 2007 by a group of Chinese immigrant
+          Christians, CCCGJ is a Baptist church rooted in the gospel of Jesus Christ. While our name includes the word “Chinese,” we warmly welcome people of all ethnic backgrounds. At CCCGJ, both English- and Mandarin-speaking individuals hear the same gospel, grow together in Christ, and serve in God’s kingdom.</div>
+          <div class="container text-center about-text">CCCGJ（杰克逊华人基督教会）由一群华人移民基督徒于2007年创立，是一间扎根于福音的浸信会教会。虽然教会的名字中包含“华人”一词，但我们热情欢迎来自各种不同族裔背景的人。在 CCCGJ，讲英文 and 讲普通话的人都能听到同一个福音，在基督里一同成长，并在神的国度中参与服侍。</div>
+        <p></p>
+        
+        <div class="about-icons">
+          <div class="about-icon-item">
+            <i class="fa-solid fa-church"></i>
+            <p>Worship 敬拜</p>
+            主日Sunday 9:30am-11:00m
+          </div>
+          <div class="about-icon-item">
+            <i class="fas fa-users"></i>
+            <p>Fellowship 团契</p>
+            周五Friday 6:30pm-8:45pm
+          </div>
+          <div class="about-icon-item">
+            <i class="fas fa-hands-praying"></i>
+            <p>Pray 祷告</p>
+            周三Wednesday 6:30pm-8:00pm
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cards Section -->
+    <section class="section-padding" style="background-color: #f9f9f9">
+      <div class="container">
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <h3 class="card-title">Our Ministries<br>我们的事工</h3>
+              <p>
+                Discover how you can get involved and serve in our various
+                ministries designed for all ages. 
+              </p>
+              <br>
+              <a href="/ministry" class="btn btn-primary">Learn More</a>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body text-center">
+              <h3 class="card-title">Sermons &amp; Resources<br>讲道与资源</h3>
+              <p>
+                Access our latest sermons, reading materials, and spiritual
+                resources to help you grow.
+              </p>
+              <br>
+              <a href="/resources" class="btn btn-primary">View Resources</a>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body text-center">
+              <h3 class="card-title">Giving<br>奉献</h3>
+              <p>
+                Support the work of the Lord through tithes and offerings safely
+                and securely online.
+              </p>
+              <br>
+              <a href="/tithing" class="btn btn-primary">Give Now</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <button id="back-to-top-btn" title="Go to top" aria-label="Back to top"><i class="fa-solid fa-angle-up"></i></button>
+
+
+    <!-- Footer -->
+    <footer id="main-footer">
+        <div class="container">
+            <div class="footer-content">
+                <!-- Left Column -->
+                <div class="footer-col col-left">
+                    <h3>CCCGJ 杰克逊华人基督教会</h3>
+                    <div class="separator"></div>
+                    <p class="slogan-list">
+                        Grow In Christ;<br>
+                        Serve God's Kingdom;<br>
+                        Reach All Nation<br>
+                        基督里成长;<br>
+                        为神国服侍;<br>
+                        向万民宣教。
+                    </p>
+                </div>
+
+                <!-- Center Column -->
+                <div class="footer-col col-center">
+                    <h3>Giving 奉献</h3>
+                    <div class="separator"></div>
+                    <p>Please make checks payable to: CCCGJ<br>请将支票抬头写为 CCCGJ</p>
+                    <p>邮寄地址Mail Address:<br>803 Old Agency Road, Ridgeland, MS 39157</p>
+                    <p>网络奉献 Donation Online through GivingFlow<br>
+                    <a href="https://givingflow.rebelgive.com/492ca49234fdd70a6252" target="_blank" class="footer-link">https://givingflow.rebelgive.com/492ca49234fdd70a6252</a></p>
+                </div>
+
+                <!-- Right Column -->
+                <div class="footer-col col-right">
+                    <h3>Contacts 联系人</h3>
+                    <div class="separator"></div>
+                    <p>联系人Contacts:<br>时尽书牧师 (Pastor Jason Shi)<br>Pastor Nate Carroll</p>
+                    <p>电话 Phone: 769-300-1456<br>Email: <a href="mailto:cccgj2009@gmail.com" class="footer-link">cccgj2009@gmail.com</a></p>
+                </div>
+            </div>
+            
+            <div class="footer-bottom-bar">
+                <div class="copyright">
+                    ©CCCGJ, 2026. All Rights Reserved.
+                </div>
+                <div class="address-social">
+                    <span>Address 地址: 803 Old Agency Road, Ridgeland, MS 39157</span>
+                    <div class="social-icons">
+                        <a href="https://www.facebook.com/profile.php?id=61578114792082" class="social-icon"><i class="fab fa-facebook"></i></a>
+                        <a href="https://www.youtube.com/@cccgjmedia2588" class="social-icon"><i class="fab fa-youtube"></i></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/js/script.js"></script>
+
+<button id="back-to-top-btn" title="Go to top" aria-label="Back to top"><i class="fa-solid fa-angle-up"></i></button>
+<button id="back-to-top-btn" title="Go to top" aria-label="Back to top"><i class="fa-solid fa-angle-up"></i></button>
+</body></html>
